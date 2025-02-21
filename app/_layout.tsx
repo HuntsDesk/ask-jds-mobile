@@ -1,39 +1,67 @@
-import { DarkTheme, DefaultTheme, ThemeProvider } from '@react-navigation/native';
-import { useFonts } from 'expo-font';
 import { Stack } from 'expo-router';
-import * as SplashScreen from 'expo-splash-screen';
-import { StatusBar } from 'expo-status-bar';
+import { View, TouchableOpacity, StyleSheet, LogBox, Platform } from 'react-native';
+import { useDrawerStore } from '../stores/drawerStore';
+import { SideDrawer } from '../components/SideDrawer';
+import { useColorScheme } from '../stores/colorScheme';
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
+import { ErrorBoundary } from 'react-error-boundary';
+import { ErrorFallback } from '../components/ErrorFallback';
 import { useEffect } from 'react';
-import 'react-native-reanimated';
 
-import { useColorScheme } from '@/hooks/useColorScheme';
+declare global {
+  interface Window {
+    frameworkReady?: () => void;
+  }
+}
 
-// Prevent the splash screen from auto-hiding before asset loading is complete.
-SplashScreen.preventAutoHideAsync();
+// Suppress specific warnings
+if (Platform.OS === 'web') {
+  LogBox.ignoreLogs([
+    'Warning: findDOMNode is deprecated',
+    'Animated: `useNativeDriver` is not supported'
+  ]);
+}
 
 export default function RootLayout() {
-  const colorScheme = useColorScheme();
-  const [loaded] = useFonts({
-    SpaceMono: require('../assets/fonts/SpaceMono-Regular.ttf'),
-  });
+  const { isOpen, setIsOpen } = useDrawerStore();
+  const { effectiveColorScheme, initializeColorScheme } = useColorScheme();
 
   useEffect(() => {
-    if (loaded) {
-      SplashScreen.hideAsync();
-    }
-  }, [loaded]);
-
-  if (!loaded) {
-    return null;
-  }
+    initializeColorScheme();
+  }, []);
 
   return (
-    <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
-      <Stack>
-        <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-        <Stack.Screen name="+not-found" />
-      </Stack>
-      <StatusBar style="auto" />
-    </ThemeProvider>
+    <ErrorBoundary fallback={<ErrorFallback />}>
+      <GestureHandlerRootView style={{ flex: 1 }}>
+        <Stack screenOptions={{ headerShown: false }}>
+          <Stack.Screen name="(tabs)" />
+        </Stack>
+
+        {isOpen && (
+          <View style={styles.overlay}>
+            <SideDrawer onClose={() => setIsOpen(false)} />
+            <TouchableOpacity 
+              style={styles.backdrop}
+              onPress={() => setIsOpen(false)}
+            />
+          </View>
+        )}
+      </GestureHandlerRootView>
+    </ErrorBoundary>
   );
 }
+
+const styles = StyleSheet.create({
+  overlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    flexDirection: 'row',
+  },
+  backdrop: {
+    flex: 1,
+  },
+});
